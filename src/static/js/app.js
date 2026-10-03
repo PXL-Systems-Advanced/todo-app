@@ -1,179 +1,72 @@
-function App() {
-    const { Container, Row, Col } = ReactBootstrap;
-    return (
-        <Container>
-            <Row>
-                <Col md={{ offset: 3, span: 6 }}>
-                    <TodoListCard />
-                </Col>
-            </Row>
-        </Container>
-    );
+const form = document.querySelector('#new-item-form');
+const input = document.querySelector('#new-item');
+const list = document.querySelector('#items');
+const emptyMessage = document.querySelector('#empty-message');
+const errorMessage = document.querySelector('#error');
+
+async function request(url, options) {
+  const response = await fetch(url, options);
+  if (!response.ok) throw new Error(`Request failed (${response.status})`);
+  return response.status === 204 ? undefined : response.json();
 }
 
-function TodoListCard() {
-    const [items, setItems] = React.useState(null);
+function render(items) {
+  list.replaceChildren(...items.map((item) => {
+    const entry = document.createElement('li');
+    entry.className = item.completed ? 'completed' : '';
 
-    React.useEffect(() => {
-        fetch('/items')
-            .then(r => r.json())
-            .then(setItems);
-    }, []);
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = item.completed;
+    checkbox.setAttribute('aria-label', `Mark ${item.name} complete`);
+    checkbox.addEventListener('change', async () => {
+      await request(`/items/${item.id}`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ ...item, completed: checkbox.checked }),
+      });
+      await load();
+    });
 
-    const onNewItem = React.useCallback(
-        newItem => {
-            setItems([...items, newItem]);
-        },
-        [items],
-    );
+    const name = document.createElement('span');
+    name.textContent = item.name;
 
-    const onItemUpdate = React.useCallback(
-        item => {
-            const index = items.findIndex(i => i.id === item.id);
-            setItems([
-                ...items.slice(0, index),
-                item,
-                ...items.slice(index + 1),
-            ]);
-        },
-        [items],
-    );
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.textContent = 'Remove';
+    remove.addEventListener('click', async () => {
+      await request(`/items/${item.id}`, { method: 'DELETE' });
+      await load();
+    });
 
-    const onItemRemoval = React.useCallback(
-        item => {
-            const index = items.findIndex(i => i.id === item.id);
-            setItems([...items.slice(0, index), ...items.slice(index + 1)]);
-        },
-        [items],
-    );
-
-    if (items === null) return 'Loading...';
-
-    return (
-        <React.Fragment>
-            <AddItemForm onNewItem={onNewItem} />
-            {items.length === 0 && (
-                <p className="text-center">No items yet! Add one above!</p>
-            )}
-            {items.map(item => (
-                <ItemDisplay
-                    item={item}
-                    key={item.id}
-                    onItemUpdate={onItemUpdate}
-                    onItemRemoval={onItemRemoval}
-                />
-            ))}
-        </React.Fragment>
-    );
+    entry.append(checkbox, name, remove);
+    return entry;
+  }));
+  emptyMessage.hidden = items.length !== 0;
 }
 
-function AddItemForm({ onNewItem }) {
-    const { Form, InputGroup, Button } = ReactBootstrap;
-
-    const [newItem, setNewItem] = React.useState('');
-    const [submitting, setSubmitting] = React.useState(false);
-
-    const submitNewItem = e => {
-        e.preventDefault();
-        setSubmitting(true);
-        fetch('/items', {
-            method: 'POST',
-            body: JSON.stringify({ name: newItem }),
-            headers: { 'Content-Type': 'application/json' },
-        })
-            .then(r => r.json())
-            .then(item => {
-                onNewItem(item);
-                setSubmitting(false);
-                setNewItem('');
-            });
-    };
-
-    return (
-        <Form onSubmit={submitNewItem}>
-            <InputGroup className="mb-3">
-                <Form.Control
-                    value={newItem}
-                    onChange={e => setNewItem(e.target.value)}
-                    type="text"
-                    placeholder="New Item"
-                    aria-describedby="basic-addon1"
-                />
-                <InputGroup.Append>
-                    <Button
-                        type="submit"
-                        variant="success"
-                        disabled={!newItem.length}
-                        className={submitting ? 'disabled' : ''}
-                    >
-                        {submitting ? 'Adding...' : 'Add Item'}
-                    </Button>
-                </InputGroup.Append>
-            </InputGroup>
-        </Form>
-    );
+async function load() {
+  try {
+    errorMessage.textContent = '';
+    render(await request('/items'));
+  } catch (error) {
+    errorMessage.textContent = error.message;
+  }
 }
 
-function ItemDisplay({ item, onItemUpdate, onItemRemoval }) {
-    const { Container, Row, Col, Button } = ReactBootstrap;
+form.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  try {
+    await request('/items', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: input.value }),
+    });
+    input.value = '';
+    await load();
+  } catch (error) {
+    errorMessage.textContent = error.message;
+  }
+});
 
-    const toggleCompletion = () => {
-        fetch(`/items/${item.id}`, {
-            method: 'PUT',
-            body: JSON.stringify({
-                name: item.name,
-                completed: !item.completed,
-            }),
-            headers: { 'Content-Type': 'application/json' },
-        })
-            .then(r => r.json())
-            .then(onItemUpdate);
-    };
-
-    const removeItem = () => {
-        fetch(`/items/${item.id}`, { method: 'DELETE' }).then(() =>
-            onItemRemoval(item),
-        );
-    };
-
-    return (
-        <Container fluid className={`item ${item.completed && 'completed'}`}>
-            <Row>
-                <Col xs={1} className="text-center">
-                    <Button
-                        className="toggles"
-                        size="sm"
-                        variant="link"
-                        onClick={toggleCompletion}
-                        aria-label={
-                            item.completed
-                                ? 'Mark item as incomplete'
-                                : 'Mark item as complete'
-                        }
-                    >
-                        <i
-                            className={`far ${
-                                item.completed ? 'fa-check-square' : 'fa-square'
-                            }`}
-                        />
-                    </Button>
-                </Col>
-                <Col xs={10} className="name">
-                    {item.name}
-                </Col>
-                <Col xs={1} className="text-center remove">
-                    <Button
-                        size="sm"
-                        variant="link"
-                        onClick={removeItem}
-                        aria-label="Remove Item"
-                    >
-                        <i className="fa fa-trash text-danger" />
-                    </Button>
-                </Col>
-            </Row>
-        </Container>
-    );
-}
-
-ReactDOM.render(<App />, document.getElementById('root'));
+load();
