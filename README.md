@@ -9,7 +9,7 @@ gh repo clone PXL-Systems-Advanced/todo-app
 git clone https://github.com/PXL-Systems-Advanced/todo-app.git
 ```
 
-It stores its data in SQLite. When the variables `MYSQL_HOST`, `MYSQL_USER`, `MYSQL_PASSWORD` and `MYSQL_DB` are set, it uses MySQL instead.
+It stores its data in SQLite. When the variables `MYSQL_HOST`, `MYSQL_USER`, `MYSQL_PASSWORD` and `MYSQL_DB` are set, it uses MySQL instead. `MYSQL_PASSWORD_FILE` can replace `MYSQL_PASSWORD`: it names a file that holds the password, such as a Compose secret.
 
 The application needs Node.js 24 or later, for its built-in SQLite module. You run it in the containers the labs describe, so you do not need Node.js on your laptop.
 

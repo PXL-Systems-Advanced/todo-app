@@ -42,7 +42,10 @@ async function createMysqlStore() {
   const options = {
     host: process.env.MYSQL_HOST,
     user: process.env.MYSQL_USER,
-    password: process.env.MYSQL_PASSWORD,
+    // MYSQL_PASSWORD_FILE names a file that holds the password, such as a Compose secret
+    password: process.env.MYSQL_PASSWORD_FILE
+      ? fs.readFileSync(process.env.MYSQL_PASSWORD_FILE, 'utf8').trim()
+      : process.env.MYSQL_PASSWORD,
     database: process.env.MYSQL_DB,
     waitForConnections: true,
     connectionLimit: 5,
